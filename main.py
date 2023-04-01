@@ -1,6 +1,8 @@
 from player import Player
+from utils import get_coordinates_ascii, check_if_coord_is_valid, get_coord, calculate_length
 
-MAIN_MENU = {"1. New Game": 1, "2. Quite": 2}
+MAIN_MENU = {"1. New Game": 1, "2. Quit": 2}
+
 NEW_GAME_MENU = {"1. PVP": 3, "2. PVE": 4}
 
 
@@ -14,7 +16,7 @@ X_AXIS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 Y_AXIS = "A,B,C,D,E,F,G,H,I,J".split(sep=",")
 
 
-def draw_board(board):
+def draw_board(board, hide=False):
     print("    ", end="")
     for i in X_AXIS:
         print(i, end="   ")
@@ -22,7 +24,10 @@ def draw_board(board):
     for i, row in enumerate(board):
         print(Y_AXIS[i], end=" ")
         for cell in row:
-            print("| " + str(cell) + " ", end="")
+            cell_content = str(cell)
+            if cell_content == '1' and hide:
+                cell_content = '*'
+            print("| " + cell_content + " ", end="")
         print()
 
 
@@ -63,25 +68,94 @@ def insert_ship(player: Player, coord1, coord2):
     player.ships.append([(x1, y1), (x2, y2)])  # memorise ships
     return True
 
-
-def get_coordinates_ascii(coord):
-    y, x = list(coord)
-    x = int(x)
-    y = ord(y) - ord("A")  # converts symbol coord to ascii value (from 0 - 9)
-    return x, y
-
-
-def show_main_menu():
+def menu_loop():
     """
     Показывает на экране главное меню
     """
+    action = exit
+    while True:
+        for menu_item in MAIN_MENU:
+            print(menu_item)
+        try:
+            choice = int(input())
+            if choice in MAIN_MENU.values():
+                action = MENU_ACTIONS[choice]
+                break
+        except:
+            print("Неверный формат ввода. Введите только число.")
+    action()
 
-    for menu_item in MAIN_MENU:
-        print(menu_item)
+
+POSSIBLE_SHIP_SIZES = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1]
+
+def game_loop():
+
+    # Insert ships of 1
+    print("Игрок 1 вводит коробли")
+    insert_all_ships_for_player(player1)
+
+    # Insert ships of 2
+    print("Игрок 2 вводит коробли")
+    insert_all_ships_for_player(player2)
+
+    # Start shooting alternating
+    player_1_shooting = True
+
+    while True:
+        if player_1_shooting:
+            print("Стреляет игрок 1")
+            draw_board(player2.board, True)
+            coord = get_coord("Введите координаы выстрела:")
+            result = player2.got_shot(coord)
+            if len(result) == 1:
+                print("Вы попытались выстрелить куда уже стреляли ранее. Попробуйте еще раз!")
+            else:
+                if result[0]:
+                    if result[1]:
+                        print("Один из короблей противника утонул!")
+                        if player2.check_if_all_ships_sunken():
+                            print("Победил игрок 1!")
+                            break
+                    print("Вы попали по короблю! Опять ваш ход!")
+                else:
+                    player_1_shooting = not player_1_shooting
+        else:
+            print("Стреляет игрок 2")
+            draw_board(player1.board, True)
+            coord = get_coord("Введите координаы выстрела:")
+            result = player1.got_shot(coord)
+            if len(result) == 1:
+                print("Вы попытались выстрелить куда уже стреляли ранее. Попробуйте еще раз!")
+            else:
+                if result[0]:
+                    if result[1]:
+                        print("Один из короблей противника утонул!")
+                        if player1.check_if_all_ships_sunken():
+                            print("Победил игрок 2!")
+                            break
+                    print("Вы попали по короблю! Опять ваш ход!")
+                else:
+                    player_1_shooting = not player_1_shooting
+
+MENU_ACTIONS = [0, game_loop, exit]
+
+def insert_all_ships_for_player(player):
+    for ship_size in POSSIBLE_SHIP_SIZES:
+        while True:
+            print(f"Вы вводите корабль длинной {ship_size}")
+            coord1 = get_coord("Введите координаты начала коробля:")
+            coord2 = get_coord("Введите координаты конца коробля:")
+            length = calculate_length(coord1, coord2)
+            if length != ship_size:
+                print(f"Длинна коробля не равна {ship_size}\nПопробуйте заного!")
+                continue
+            success = insert_ship(player, coord1, coord2)
+            if success:
+                draw_board(player.board)
+                break
+            else:
+                print("В эти координаты корабль нельзя вставлять!")
 
 
 if __name__ == '__main__':
-    draw_board(PLAYER2_BOARD)
-    insert_ship(PLAYER2_BOARD, "A0", "F0")
-    insert_ship(PLAYER2_BOARD, "C3", "C1")
-    draw_board(PLAYER2_BOARD)
+    menu_loop()
